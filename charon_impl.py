@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import ipaddress
+import logging
 import os
 import sys
 import warnings
@@ -372,6 +374,25 @@ def serve(args: argparse.Namespace) -> int:
         print(f"import failure: {exc}", file=sys.stderr)
         return 2
 
+    class ShutdownSafeSocket:
+        def __init__(self, wrapped_socket):
+            self.wrapped_socket = wrapped_socket
+
+        def shutdown(self, how: int) -> None:
+            try:
+                self.wrapped_socket.shutdown(how)
+            except OSError as exc:
+                if exc.errno != errno.ENOTCONN:
+                    raise
+
+        def __getattr__(self, name):
+            return getattr(self.wrapped_socket, name)
+
+    class CharonKmipServer(KmipServer):
+        def start(self) -> None:
+            super().start()
+            self._socket = ShutdownSafeSocket(self._socket)
+
     cert_dir = CHARON_ROOT / "certs"
     state_dir = CHARON_ROOT / "state"
     runtime_dir = CHARON_ROOT / "runtime"
@@ -395,7 +416,7 @@ def serve(args: argparse.Namespace) -> int:
     state_dir.mkdir(parents=True, exist_ok=True)
     policy_dir.mkdir(parents=True, exist_ok=True)
 
-    server = KmipServer(
+    server = CharonKmipServer(
         hostname=args.ip,
         port=args.port,
         certificate_path=str(certificate_path),
@@ -410,6 +431,14 @@ def serve(args: argparse.Namespace) -> int:
         live_policies=False,
         database_path=str(state_dir / "pykmip.db"),
     )
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+    )
+    logging.getLogger("kmip.server").addHandler(stdout_handler)
 
     print(f"Starting KMIP server on {args.ip}:{args.port}")
     with server:
