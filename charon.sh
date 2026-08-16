@@ -5,6 +5,7 @@ set -euo pipefail
 readonly VENV_NAME="venv"
 readonly PYTHON_BIN="python3.11"
 readonly PYKMIP_VERSION="0.10.0"
+readonly IFADDR_VERSION="0.2.0"
 readonly CRYPTOGRAPHY_SPEC="cryptography<48"
 readonly LISTEN_IP="0.0.0.0"
 
@@ -30,9 +31,10 @@ create_venv() {
     echo "Updating Python packaging tools"
     "${VENV_DIR}/bin/python" -m pip install --upgrade pip setuptools wheel
 
-    echo "Installing PyKMIP ${PYKMIP_VERSION} with ${CRYPTOGRAPHY_SPEC}"
+    echo "Installing Charon Python dependencies"
     "${VENV_DIR}/bin/python" -m pip install \
         "PyKMIP==${PYKMIP_VERSION}" \
+        "ifaddr==${IFADDR_VERSION}" \
         "${CRYPTOGRAPHY_SPEC}"
 
     echo "Virtual environment is ready: ${VENV_DIR}"
@@ -62,10 +64,8 @@ start() {
 
 
 initialize() {
-    local server_ip="$1"
-
     prepare_venv
-    exec python "${CHARON_IMPL}" init "${server_ip}"
+    exec python "${CHARON_IMPL}" init "$@"
 }
 
 
@@ -115,7 +115,7 @@ purge() {
 
 
 usage() {
-    echo "usage: $0 init <server-ip>" >&2
+    echo "usage: $0 init [server-ip]" >&2
     echo "       $0 start" >&2
     echo "       $0 delete-venv" >&2
     echo "       $0 purge" >&2
@@ -136,11 +136,15 @@ case "$1" in
         start
         ;;
     init)
-        if [[ $# -ne 2 ]]; then
+        if [[ $# -gt 2 ]]; then
             usage
             exit 2
         fi
-        initialize "$2"
+        if [[ $# -eq 2 ]]; then
+            initialize "$2"
+        else
+            initialize
+        fi
         ;;
     delete-venv)
         if [[ $# -ne 1 ]]; then

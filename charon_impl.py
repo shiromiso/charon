@@ -62,8 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     init_parser.add_argument(
         "server_ip",
+        nargs="?",
         type=ipv4_address,
-        help="IPv4 address to encode in the server certificate",
+        help="IPv4 address to encode in the server certificate (optional)",
     )
     init_parser.set_defaults(handler=initialize)
 
@@ -83,6 +84,87 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.set_defaults(handler=serve)
 
     return parser
+
+
+def discover_ipv4_addresses() -> list[str]:
+    try:
+        import ifaddr
+    except ImportError as exc:
+        print(
+            "error: ifaddr is not installed or could not be imported",
+            file=sys.stderr,
+        )
+        print(f"import failure: {exc}", file=sys.stderr)
+        return []
+
+    addresses = []
+    seen = set()
+
+    def add(value: str) -> None:
+        try:
+            address = ipaddress.IPv4Address(value)
+        except ipaddress.AddressValueError:
+            return
+
+        if (
+            address.is_unspecified
+            or address.is_loopback
+            or address.is_link_local
+            or address.is_multicast
+        ):
+            return
+
+        normalized = str(address)
+        if normalized not in seen:
+            seen.add(normalized)
+            addresses.append(normalized)
+
+    for adapter in ifaddr.get_adapters():
+        for adapter_ip in adapter.ips:
+            if isinstance(adapter_ip.ip, str):
+                add(adapter_ip.ip)
+
+    return addresses
+
+
+def choose_server_ip() -> str | None:
+    addresses = discover_ipv4_addresses()
+
+    print("Suggested IPv4 addresses:")
+    for index, address in enumerate(addresses, start=1):
+        print(f"  {index}) {address}")
+    print("  0) Other")
+
+    try:
+        selection = input("Select an address: ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\nInitialization cancelled.", file=sys.stderr)
+        return None
+
+    try:
+        selected_index = int(selection)
+    except ValueError:
+        print("Initialization cancelled: invalid selection.", file=sys.stderr)
+        return None
+
+    if selected_index == 0:
+        try:
+            entered_ip = input("Enter an IPv4 address: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\nInitialization cancelled.", file=sys.stderr)
+            return None
+
+        try:
+            return ipv4_address(entered_ip)
+        except argparse.ArgumentTypeError:
+            print("Initialization cancelled: invalid IPv4 address.", file=sys.stderr)
+            return None
+
+    if 1 <= selected_index <= len(addresses):
+        return addresses[selected_index - 1]
+
+    print("Initialization cancelled: invalid selection.", file=sys.stderr)
+    return None
 
 
 def initialize(args: argparse.Namespace) -> int:
@@ -111,8 +193,13 @@ def initialize(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-    else:
-        cert_dir.mkdir(mode=0o700)
+    server_ip = args.server_ip
+    if server_ip is None:
+        server_ip = choose_server_ip()
+        if server_ip is None:
+            return 1
+
+    cert_dir.mkdir(mode=0o700, exist_ok=True)
 
     now = datetime.utcnow() - timedelta(minutes=1)
     ca_expires = now + timedelta(days=3650)
@@ -169,7 +256,7 @@ def initialize(args: argparse.Namespace) -> int:
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), True)
         .add_extension(
             x509.SubjectAlternativeName(
-                [x509.IPAddress(ipaddress.IPv4Address(args.server_ip))]
+                [x509.IPAddress(ipaddress.IPv4Address(server_ip))]
             ),
             critical=False,
         )
