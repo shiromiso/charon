@@ -20,6 +20,7 @@ DEFAULT_PORT = 5696
 CA_COMMON_NAME = "Charon KMIP CA"
 SERVER_COMMON_NAME = "Charon KMIP Server"
 CLIENT_COMMON_NAME = "Charon KMIP Client"
+CLIENT_SAN_DNS_NAME = "charon-kmip-client"
 RSA_PUBLIC_EXPONENT = 65537
 RSA_KEY_SIZE = 2048
 CA_VALIDITY_DAYS = 3650
@@ -309,6 +310,12 @@ def initialize(args: argparse.Namespace) -> int:
         .not_valid_after(certificate_expires)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), True)
         .add_extension(
+            x509.SubjectAlternativeName(
+                [x509.DNSName(CLIENT_SAN_DNS_NAME)]
+            ),
+            critical=False,
+        )
+        .add_extension(
             x509.KeyUsage(
                 digital_signature=True,
                 content_commitment=False,
@@ -414,6 +421,10 @@ def serve(args: argparse.Namespace) -> int:
             except OSError as exc:
                 if exc.errno != errno.ENOTCONN:
                     raise
+
+        def accept(self):
+            connection, address = self.wrapped_socket.accept()
+            return ShutdownSafeSocket(connection), address
 
         def __getattr__(self, name):
             return getattr(self.wrapped_socket, name)
