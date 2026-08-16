@@ -23,8 +23,9 @@ create_venv() {
         exit 1
     fi
 
+    # Use --copies for exFAT compatability
     echo "Creating virtual environment: ${VENV_DIR}"
-    "${PYTHON_BIN}" -m venv "${VENV_DIR}"
+    "${PYTHON_BIN}" -m venv --copies "${VENV_DIR}"
 
     echo "Updating Python packaging tools"
     "${VENV_DIR}/bin/python" -m pip install --upgrade pip setuptools wheel
