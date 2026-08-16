@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-readonly VENV_NAME=".venv"
+readonly VENV_NAME="venv"
 readonly PYTHON_BIN="python3.11"
 readonly PYKMIP_VERSION="0.10.0"
 readonly CRYPTOGRAPHY_SPEC="cryptography<48"
@@ -14,7 +14,7 @@ readonly VENV_DIR="${SCRIPT_DIR}/${VENV_NAME}"
 readonly CHARON_IMPL="${SCRIPT_DIR}/charon_impl.py"
 readonly CERT_DIR="${SCRIPT_DIR}/certs"
 readonly STATE_DIR="${SCRIPT_DIR}/state"
-readonly RUNTIME_DIR="${SCRIPT_DIR}/.runtime"
+readonly RUNTIME_DIR="${SCRIPT_DIR}/runtime"
 
 
 create_venv() {

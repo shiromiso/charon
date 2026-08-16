@@ -287,7 +287,7 @@ def serve(args: argparse.Namespace) -> int:
 
     cert_dir = CHARON_ROOT / "certs"
     state_dir = CHARON_ROOT / "state"
-    runtime_dir = CHARON_ROOT / ".runtime"
+    runtime_dir = CHARON_ROOT / "runtime"
     policy_dir = runtime_dir / "policy"
 
     certificate_path = cert_dir / "server.crt"
