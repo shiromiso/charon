@@ -17,6 +17,13 @@ from typing import Sequence
 
 CHARON_ROOT = Path(__file__).resolve().parent
 DEFAULT_PORT = 5696
+CA_COMMON_NAME = "Charon KMIP CA"
+SERVER_COMMON_NAME = "Charon KMIP Server"
+CLIENT_COMMON_NAME = "Charon KMIP Client"
+RSA_PUBLIC_EXPONENT = 65537
+RSA_KEY_SIZE = 2048
+CA_VALIDITY_DAYS = 3650
+CERTIFICATE_VALIDITY_DAYS = 1095
 
 
 def suppress_pykmip_deprecation_warnings() -> None:
@@ -204,22 +211,31 @@ def initialize(args: argparse.Namespace) -> int:
     cert_dir.mkdir(mode=0o700, exist_ok=True)
 
     now = datetime.utcnow() - timedelta(minutes=1)
-    ca_expires = now + timedelta(days=3650)
-    certificate_expires = now + timedelta(days=1095)
+    ca_expires = now + timedelta(days=CA_VALIDITY_DAYS)
+    certificate_expires = now + timedelta(days=CERTIFICATE_VALIDITY_DAYS)
 
     ca_name = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "Charon KMIP CA")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, CA_COMMON_NAME)]
     )
     server_name = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "Charon KMIP Server")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, SERVER_COMMON_NAME)]
     )
     client_name = x509.Name(
-        [x509.NameAttribute(NameOID.COMMON_NAME, "Charon KMIP Client")]
+        [x509.NameAttribute(NameOID.COMMON_NAME, CLIENT_COMMON_NAME)]
     )
 
-    ca_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    server_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    client_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    ca_key = rsa.generate_private_key(
+        public_exponent=RSA_PUBLIC_EXPONENT,
+        key_size=RSA_KEY_SIZE,
+    )
+    server_key = rsa.generate_private_key(
+        public_exponent=RSA_PUBLIC_EXPONENT,
+        key_size=RSA_KEY_SIZE,
+    )
+    client_key = rsa.generate_private_key(
+        public_exponent=RSA_PUBLIC_EXPONENT,
+        key_size=RSA_KEY_SIZE,
+    )
 
     ca_certificate = (
         x509.CertificateBuilder()
@@ -359,6 +375,20 @@ def initialize(args: argparse.Namespace) -> int:
         return 1
 
     print(f"Initialized KMIP certificate material in {cert_dir}")
+    print()
+    print("DSM certificate import:")
+    print(f"  Private Key:             {cert_dir / 'client.key'}")
+    print(f"  Certificate:             {cert_dir / 'client.crt'}")
+    print(f"  Intermediate certificate: {cert_dir / 'ca.crt'}")
+    print("  The intermediate field is optional, but supplying ca.crt is recommended.")
+    print()
+    print("After import:")
+    print(f"  Certificate > Settings > KMIP: Select \"{CLIENT_COMMON_NAME}\"")
+    print()
+    print("DSM KMIP remote key client configuration:")
+    print(f"  Certificate Authority:   {cert_dir / 'ca.crt'}")
+    print("  Uploading this CA again for the remote KMIP server is required.")
+    print()
     return 0
 
 
