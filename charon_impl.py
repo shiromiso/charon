@@ -7,6 +7,7 @@ import argparse
 import ipaddress
 import os
 import sys
+import warnings
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Sequence
@@ -14,6 +15,22 @@ from typing import Sequence
 
 CHARON_ROOT = Path(__file__).resolve().parent
 DEFAULT_PORT = 5696
+
+
+def suppress_pykmip_deprecation_warnings() -> None:
+    try:
+        from cryptography.utils import CryptographyDeprecationWarning
+    except ImportError:
+        return
+
+    warnings.filterwarnings(
+        "ignore",
+        category=CryptographyDeprecationWarning,
+        module=r"kmip(?:\.|$)",
+    )
+
+
+suppress_pykmip_deprecation_warnings()
 
 
 def ipv4_address(value: str) -> str:

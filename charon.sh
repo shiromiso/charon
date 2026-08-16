@@ -5,6 +5,7 @@ set -euo pipefail
 readonly VENV_NAME=".venv"
 readonly PYTHON_BIN="python3.11"
 readonly PYKMIP_VERSION="0.10.0"
+readonly CRYPTOGRAPHY_SPEC="cryptography<48"
 readonly LISTEN_IP="0.0.0.0"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -25,8 +26,10 @@ create_venv() {
     echo "Updating Python packaging tools"
     "${VENV_DIR}/bin/python" -m pip install --upgrade pip setuptools wheel
 
-    echo "Installing PyKMIP ${PYKMIP_VERSION}"
-    "${VENV_DIR}/bin/python" -m pip install "PyKMIP==${PYKMIP_VERSION}"
+    echo "Installing PyKMIP ${PYKMIP_VERSION} with ${CRYPTOGRAPHY_SPEC}"
+    "${VENV_DIR}/bin/python" -m pip install \
+        "PyKMIP==${PYKMIP_VERSION}" \
+        "${CRYPTOGRAPHY_SPEC}"
 
     echo "Virtual environment is ready: ${VENV_DIR}"
     echo
