@@ -33,7 +33,7 @@ create_venv() {
 }
 
 
-start() {
+prepare_venv() {
     if [[ ! -d "${VENV_DIR}" ]]; then
         create_venv
     fi
@@ -45,23 +45,48 @@ start() {
 
     # shellcheck disable=SC1091
     source "${VENV_DIR}/bin/activate"
+}
+
+
+start() {
+    prepare_venv
     exec python "${CHARON_IMPL}" serve "${LISTEN_IP}"
 }
 
 
-usage() {
-    echo "usage: $0 start" >&2
+initialize() {
+    local server_ip="$1"
+
+    prepare_venv
+    exec python "${CHARON_IMPL}" init "${server_ip}"
 }
 
 
-if [[ $# -ne 1 ]]; then
+usage() {
+    echo "usage: $0 init <server-ip>" >&2
+    echo "       $0 start" >&2
+}
+
+
+if [[ $# -eq 0 ]]; then
     usage
     exit 2
 fi
 
 case "$1" in
     start)
+        if [[ $# -ne 1 ]]; then
+            usage
+            exit 2
+        fi
         start
+        ;;
+    init)
+        if [[ $# -ne 2 ]]; then
+            usage
+            exit 2
+        fi
+        initialize "$2"
         ;;
     *)
         usage
