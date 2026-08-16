@@ -85,7 +85,12 @@ remove_generated_path() {
 }
 
 
-clean() {
+delete_venv() {
+    remove_generated_path "${VENV_DIR}"
+}
+
+
+purge() {
     local confirmation
 
     echo "WARNING!!!"
@@ -96,23 +101,24 @@ clean() {
     read -r confirmation
 
     if [[ "${confirmation}" != "YES" ]]; then
-        echo "Clean cancelled."
+        echo "Purge cancelled."
         return 1
     fi
 
-    remove_generated_path "${VENV_DIR}"
+    delete_venv
     remove_generated_path "${CERT_DIR}"
     remove_generated_path "${STATE_DIR}"
     remove_generated_path "${RUNTIME_DIR}"
 
-    echo "Charon data removed."
+    echo "Charon data purged."
 }
 
 
 usage() {
     echo "usage: $0 init <server-ip>" >&2
     echo "       $0 start" >&2
-    echo "       $0 clean" >&2
+    echo "       $0 delete-venv" >&2
+    echo "       $0 purge" >&2
 }
 
 
@@ -136,12 +142,19 @@ case "$1" in
         fi
         initialize "$2"
         ;;
-    clean)
+    delete-venv)
         if [[ $# -ne 1 ]]; then
             usage
             exit 2
         fi
-        clean
+        delete_venv
+        ;;
+    purge)
+        if [[ $# -ne 1 ]]; then
+            usage
+            exit 2
+        fi
+        purge
         ;;
     *)
         usage
