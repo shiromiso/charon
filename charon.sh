@@ -12,6 +12,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 readonly VENV_DIR="${SCRIPT_DIR}/${VENV_NAME}"
 readonly CHARON_IMPL="${SCRIPT_DIR}/charon_impl.py"
+readonly CERT_DIR="${SCRIPT_DIR}/certs"
+readonly STATE_DIR="${SCRIPT_DIR}/state"
+readonly RUNTIME_DIR="${SCRIPT_DIR}/.runtime"
 
 
 create_venv() {
@@ -65,9 +68,50 @@ initialize() {
 }
 
 
+remove_generated_path() {
+    local target="$1"
+
+    case "${target}" in
+        "${VENV_DIR}"|"${CERT_DIR}"|"${STATE_DIR}"|"${RUNTIME_DIR}")
+            ;;
+        *)
+            echo "error: refusing to remove unexpected path: ${target}" >&2
+            exit 1
+            ;;
+    esac
+
+    rm -rf -- "${target}"
+}
+
+
+clean() {
+    local confirmation
+
+    echo "WARNING!!!"
+    echo "THIS WILL PERMANENTLY DELETE THE CHARON VIRTUAL ENVIRONMENT,"
+    echo "TLS CERTIFICATES, KMIP DATABASE, AND RUNTIME DATA."
+    echo "ENCRYPTED VOLUMES MAY BECOME INACCESSIBLE WITHOUT THEIR RECOVERY KEYS."
+    printf "TYPE YES IN ALL CAPS TO CONTINUE: "
+    read -r confirmation
+
+    if [[ "${confirmation}" != "YES" ]]; then
+        echo "Clean cancelled."
+        return 1
+    fi
+
+    remove_generated_path "${VENV_DIR}"
+    remove_generated_path "${CERT_DIR}"
+    remove_generated_path "${STATE_DIR}"
+    remove_generated_path "${RUNTIME_DIR}"
+
+    echo "Charon data removed."
+}
+
+
 usage() {
     echo "usage: $0 init <server-ip>" >&2
     echo "       $0 start" >&2
+    echo "       $0 clean" >&2
 }
 
 
@@ -90,6 +134,13 @@ case "$1" in
             exit 2
         fi
         initialize "$2"
+        ;;
+    clean)
+        if [[ $# -ne 1 ]]; then
+            usage
+            exit 2
+        fi
+        clean
         ;;
     *)
         usage
