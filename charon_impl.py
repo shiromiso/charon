@@ -51,6 +51,39 @@ def ipv4_address(value: str) -> str:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
+def server_identity(value: str) -> str:
+    """Validate and normalize a server IPv4 address or DNS hostname."""
+    try:
+        return str(ipaddress.IPv4Address(value))
+    except ipaddress.AddressValueError:
+        pass
+
+    hostname = value[:-1] if value.endswith(".") else value
+    hostname = hostname.lower()
+    labels = hostname.split(".")
+    if (
+        not hostname
+        or len(hostname) > 253
+        or any(
+            not label
+            or len(label) > 63
+            or label.startswith("-")
+            or label.endswith("-")
+            or any(
+                not character.isascii()
+                or not (character.isalnum() or character == "-")
+                for character in label
+            )
+            for label in labels
+        )
+    ):
+        raise argparse.ArgumentTypeError(
+            "must be a valid IPv4 address or hostname"
+        )
+
+    return hostname
+
+
 def port_number(value: str) -> int:
     """Parse a valid TCP port number."""
     try:
@@ -71,10 +104,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="create the KMIP certificate authority and certificates",
     )
     init_parser.add_argument(
-        "server_ip",
+        "server_identity",
         nargs="?",
-        type=ipv4_address,
-        help="IPv4 address to encode in the server certificate (optional)",
+        type=server_identity,
+        metavar="SERVER_IP_OR_HOSTNAME",
+        help="IPv4 address or hostname to encode in the server certificate",
     )
     init_parser.set_defaults(handler=initialize)
 
@@ -137,16 +171,16 @@ def discover_ipv4_addresses() -> list[str]:
     return addresses
 
 
-def choose_server_ip() -> str | None:
+def choose_server_identity() -> str | None:
     addresses = discover_ipv4_addresses()
 
     print("Suggested IPv4 addresses:")
     for index, address in enumerate(addresses, start=1):
         print(f"  {index}) {address}")
-    print("  0) Other")
+    print("  0) Other IP or hostname")
 
     try:
-        selection = input("Select an address: ").strip()
+        selection = input("Select an option: ").strip()
     except (EOFError, KeyboardInterrupt):
         print("\nInitialization cancelled.", file=sys.stderr)
         return None
@@ -159,15 +193,20 @@ def choose_server_ip() -> str | None:
 
     if selected_index == 0:
         try:
-            entered_ip = input("Enter an IPv4 address: ").strip()
+            entered_identity = input(
+                "Enter an IP address or hostname: "
+            ).strip()
         except (EOFError, KeyboardInterrupt):
             print("\nInitialization cancelled.", file=sys.stderr)
             return None
 
         try:
-            return ipv4_address(entered_ip)
+            return server_identity(entered_identity)
         except argparse.ArgumentTypeError:
-            print("Initialization cancelled: invalid IPv4 address.", file=sys.stderr)
+            print(
+                "Initialization cancelled: invalid IP address or hostname.",
+                file=sys.stderr,
+            )
             return None
 
     if 1 <= selected_index <= len(addresses):
@@ -203,10 +242,10 @@ def initialize(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 1
-    server_ip = args.server_ip
-    if server_ip is None:
-        server_ip = choose_server_ip()
-        if server_ip is None:
+    certificate_identity = args.server_identity
+    if certificate_identity is None:
+        certificate_identity = choose_server_identity()
+        if certificate_identity is None:
             return 1
 
     cert_dir.mkdir(mode=0o700, exist_ok=True)
@@ -237,6 +276,13 @@ def initialize(args: argparse.Namespace) -> int:
         public_exponent=RSA_PUBLIC_EXPONENT,
         key_size=RSA_KEY_SIZE,
     )
+
+    try:
+        server_subject_alt_name = x509.IPAddress(
+            ipaddress.IPv4Address(certificate_identity)
+        )
+    except ipaddress.AddressValueError:
+        server_subject_alt_name = x509.DNSName(certificate_identity)
 
     ca_certificate = (
         x509.CertificateBuilder()
@@ -274,9 +320,7 @@ def initialize(args: argparse.Namespace) -> int:
         .not_valid_after(certificate_expires)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), True)
         .add_extension(
-            x509.SubjectAlternativeName(
-                [x509.IPAddress(ipaddress.IPv4Address(server_ip))]
-            ),
+            x509.SubjectAlternativeName([server_subject_alt_name]),
             critical=False,
         )
         .add_extension(

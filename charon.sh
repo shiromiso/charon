@@ -115,7 +115,7 @@ purge() {
 
 
 usage() {
-    echo "usage: $0 init [server-ip]" >&2
+    echo "usage: $0 init [server_ip_or_hostname]" >&2
     echo "       $0 start" >&2
     echo "       $0 delete-venv" >&2
     echo "       $0 purge" >&2
