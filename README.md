@@ -7,8 +7,11 @@ Its Python virtual environment is disposable and kept separate from the persiste
 
 The idea is to keep it handy and run in foreground on-demand, as opposed to an always-on service.
 
-### Credit
-Based on [kmip-server-dsm](https://github.com/rnurgaliyev/kmip-server-dsm/tree/master) by rnurgaliyev.
+### Disclaimer
+
+This is a proof of concept intended to demonstrate portable KMIP integration with Synology DSM. It has not undergone extensive testing or audit.
+
+Do not rely on this as the only means of accessing encrypted data. Keep verified recovery keys and backups of the certificate and KMIP state directories. Review the implementation and use it at your own risk.
 
 ### Usage
 Run `./charon.sh` to view the available commands.
@@ -23,3 +26,6 @@ journalctl -xef
 ```
 
 Leave the command running while reproducing the failure in Control Panel.
+
+### Credit
+Based on [kmip-server-dsm](https://github.com/rnurgaliyev/kmip-server-dsm/tree/master) by rnurgaliyev.
