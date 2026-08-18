@@ -1,5 +1,7 @@
 # Charon
 
+![Charon connected to the Synology DSM Encryption Key Vault](assets/charon-dsm-kmip.png)
+
 Charon is a small, portable KMIP server for Synology DSM, built with Bash, Python, and PyKMIP.
 Its Python virtual environment is disposable and kept separate from the persistent certificates and KMIP state.
 
